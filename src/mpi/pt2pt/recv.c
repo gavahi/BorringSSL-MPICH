@@ -226,12 +226,12 @@ int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int ta
 {
     int mpi_errno = MPI_SUCCESS;
    // int var = sodium_init();
-     int ADDITIONAL_DATA_LEN = 6;
+    // int ADDITIONAL_DATA_LEN = 6;
     //int MESSAGE_LEN = 4;
     int i;
     //unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
      char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
-     char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
+   //  char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
     //unsigned char ciphertext[MESSAGE_LEN + crypto_aead_aes256gcm_ABYTES];
     //void * ciphertext;
     int ciphertext_len, c;
@@ -268,11 +268,11 @@ int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int ta
    //                               ADDITIONAL_DATA,
    //                               ADDITIONAL_DATA_LEN,
    //                               nonce, key);
-   if(!EVP_AEAD_CTX_open(ctx, buf,
+				if(!EVP_AEAD_CTX_open(ctx, buf,
                                      &decrypted_len, count,
                                      nonce, 12,
                                      deciphertext, ciphertext_len,
-                                     ADDITIONAL_DATA, ADDITIONAL_DATA_LEN)){
+                                     NULL, 0)){
             printf("Decryption error");fflush(stdout);
             //for(j=0;j<decrypted_len;j++)
             //        printf("%c",(unsigned int)decrypted[j]);

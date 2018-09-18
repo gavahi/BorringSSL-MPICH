@@ -131,7 +131,7 @@ libtool: install: ranlib /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_instal
 libtool: install: /usr/bin/install -c lib/.libs/libmpicxx.a /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib/libmpicxx.a
 libtool: install: chmod 644 /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib/libmpicxx.a
 libtool: install: ranlib /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib/libmpicxx.a
-libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/sbin" ldconfig -n /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/sbin" ldconfig -n /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib
 ----------------------------------------------------------------------
 Libraries have been installed in:
    /home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl/lib

@@ -4,6 +4,9 @@
         "unordered_map": "c",
         "vector": "c",
         "initializer_list": "c",
-        "*.i": "c"
+        "*.i": "c",
+        "ratio": "cpp",
+        "system_error": "cpp",
+        "type_traits": "cpp"
     }
 }

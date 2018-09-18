@@ -202,7 +202,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
 }
 
 /*Added by Abu Naser, june 11 */
-int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+int MPI_SEC_Send_primery(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
 	     MPI_Comm comm)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -223,9 +223,9 @@ int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, in
    // char * ciphertext;
     //ciphertext=(char *) MPIU_Malloc(((count) * sizeof(datatype))  + 16);
     int ciphertext_len=0; 
-     int ADDITIONAL_DATA_LEN = 6;
+    // int ADDITIONAL_DATA_LEN = 6;
      char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
-     char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
+    // char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
     //unsigned char decrypted[MESSAGE_LEN];
 	//unsigned long long decrypted_len;
     //unsigned char * MESSAGE; 
@@ -246,7 +246,7 @@ int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, in
                                      &ciphertext_len, max_out_len,
                                      nonce, 12,
                                      buf,  count,
-                                     ADDITIONAL_DATA, ADDITIONAL_DATA_LEN)
+                                     NULL, 0)
             ){
                 //printf("Encryption done: EVP_aead_aes_256_gcm, ciphertext length is %lu count=%d\n",ciphertext_len,count);fflush(stdout);
                 //for(j=0;j<ciphertext_len;j++)
@@ -278,6 +278,31 @@ int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, in
     return mpi_errno;
 }
 
+int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+	     MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int i;
+    int ciphertext_len=0;    
+    char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};    
+    int * val;
+    unsigned char * c;
+    int   max_out_len = 64 + count;
+    
+    if(!EVP_AEAD_CTX_seal(ctx, ciphertext,
+                                     &ciphertext_len, max_out_len,
+                                     nonce, 12,
+                                     buf,  count,
+                                     NULL, 0)
+            ){
+              printf("error in encryption\n");fflush(stdout);
+            }
+
+	mpi_errno=MPI_Send(ciphertext, ciphertext_len, datatype, dest, tag, comm);
+
+    return mpi_errno;
+}
+
 void init_crypto(){
     int i;  
     unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
@@ -289,9 +314,9 @@ void init_crypto(){
    //   ADDITIONAL_DATA[i]=(unsigned char)('a'+i);
      //strcpy(nonce,"012345678912");  
     // strcpy(ADDITIONAL_DATA,"123456"); 
-    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_128_gcm_siv(),
+    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
                             key,
-                            16, 0);
+                            32, 0);
     return;                        
 }
 /*End of adding */

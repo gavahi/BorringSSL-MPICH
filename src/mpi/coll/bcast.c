@@ -7,6 +7,13 @@
 
 #include "mpiimpl.h"
 #include "collutil.h"
+#include <openssl/evp.h>
+#include <openssl/aes.h>
+#include <openssl/err.h>
+#include <openssl/aead.h>
+//char ciphertext[4194304+18];
+//char deciphertext_boringsll[4194304+18];
+//EVP_AEAD_CTX *ctx = NULL; 
 
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
@@ -1605,4 +1612,114 @@ int MPI_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,
     mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
+}
+
+/*   September 6 August 2018 */
+
+void init_boringssl_256_siv(){
+
+    unsigned char key_boringssl_siv_32 [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
+
+    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
+                            key_boringssl_siv_32,
+                            32, 0);
+    return;                        
+}
+
+void init_boringssl_128_siv(){
+
+    unsigned char key_boringssl_siv_16 [16] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p'};
+
+    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_128_gcm_siv(),
+                            key_boringssl_siv_16,
+                            16, 0);
+    return;                        
+}
+
+void init_boringssl_128(){
+
+    unsigned char key_boringssl_16 [16] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p'};
+
+    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_128_gcm(),
+                            key_boringssl_16,
+                            16, 0);
+    return;                        
+}
+
+void init_boringssl_256(){
+
+    unsigned char key_boringssl_32 [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
+
+    ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm(),
+                            key_boringssl_32,
+                            32, 0);
+    return;                        
+}
+
+void my_print_bcast(void *print_buffer, int count,char s[])	//keep square brackets in signature
+{ 
+	printf("\n%s=\n",s);fflush(stdout);
+	for (int i=0 ; i<count ; i++){
+		printf("%2x ",*((unsigned char *)(print_buffer+i)));
+		fflush(stdout);
+	}
+	printf("\n");fflush(stdout);
+}
+
+
+int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root, 
+               MPI_Comm comm , int KEY_mode)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+    MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPID_MPI_STATE_DECL(MPID_STATE_MPI_BCAST);
+	
+	int ciphertext_len = 0;
+	const static char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
+    const static char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
+	int ADDITIONAL_DATA_LEN = 6;
+	int max_out_len = 64 + count;
+	long unsigned decrypted_len=0;
+	
+	char * ciphertext;
+	ciphertext=(char*) MPIU_Malloc(((count+32) * sizeof(datatype)) );
+	
+	char * deciphertext;
+	deciphertext=(char*) MPIU_Malloc(((count+32) * sizeof(datatype)) );
+	
+	MPID_Comm_get_ptr( comm, comm_ptr );
+	
+	int rank;
+	rank = comm_ptr->rank;
+
+	if (rank == root) {
+		
+		//my_print_bcast(buffer,count,"This Send_Plain_Text");
+
+		//if(!EVP_AEAD_CTX_seal(ctx, ciphertext,&ciphertext_len, max_out_len,nonce, 12,buffer, count,ADDITIONAL_DATA, ADDITIONAL_DATA_LEN))
+		if(!EVP_AEAD_CTX_seal(ctx, ciphertext,&ciphertext_len, max_out_len,nonce, 12,buffer, count,NULL, 0))
+			{  printf("error in encryption\n");		fflush(stdout);}
+		
+		MPI_Bcast(ciphertext, ciphertext_len, datatype, 0, comm);
+		
+	}
+	else if (rank != root) {	
+	
+		ciphertext_len=count+16;
+		
+		MPI_Bcast(deciphertext, count+16, datatype, 0, comm);
+		
+		//if(!EVP_AEAD_CTX_open(ctx, buffer,&decrypted_len, count,nonce, 12, deciphertext, ciphertext_len, ADDITIONAL_DATA, ADDITIONAL_DATA_LEN))
+		if(!EVP_AEAD_CTX_open(ctx, buffer,&decrypted_len, count,nonce, 12, deciphertext, ciphertext_len, NULL, 0))
+				{printf("Decryption error");	fflush(stdout);}
+		//my_print_bcast(buffer,count,"This Recv_Plain_Text =");		
+		
+	}
+	
+	MPIU_Free(ciphertext);
+	MPIU_Free(deciphertext);
+	
+	return mpi_errno;
+
 }
