@@ -137,14 +137,15 @@ int usleep(useconds_t usec);
 #endif
 
 /* added by abu naser */
+
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
 extern EVP_AEAD_CTX *ctx;
-//extern unsigned int ADDITIONAL_DATA_LEN;
-//extern  char nonce[16];
-//extern  char ADDITIONAL_DATA[10];
+extern unsigned char key [32];
+extern unsigned char nonce[12];
+
 /* end of add*/
 
 /* ------------------------------------------------------------------------- */

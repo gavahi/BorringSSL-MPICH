@@ -913,8 +913,8 @@ typedef int (MPI_Datarep_extent_function)(MPI_Datatype datatype, MPI_Aint *,
 #ifndef MPICH_SUPPRESS_PROTOTYPES
 /* We require that the C compiler support prototypes */
 /* Begin Prototypes */
+
 /* Added by Abu Naser, an16e@my.fsu.edu */
-void init_crypto();
 int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
 	      MPI_Comm comm, MPI_Request *request);
 int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
@@ -922,7 +922,26 @@ int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
 int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
 	     MPI_Comm comm);
 int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-	     MPI_Comm comm, MPI_Status *status);         
+	     MPI_Comm comm, MPI_Status *status); 
+int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root, 
+               MPI_Comm comm);
+int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  MPI_Comm comm);
+int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  MPI_Comm comm);
+int MPI_SEC_Alltoallv(const void *sendbuf, const int *sendcounts,
+                  const int *sdispls, MPI_Datatype sendtype, void *recvbuf,
+                  const int *recvcounts, const int *rdispls, MPI_Datatype recvtype,
+                  MPI_Comm comm);                                                   
+
+void init_crypto();
+void init_boringssl_256_siv();
+void init_boringssl_128_siv();
+void init_boringssl_128();
+void init_boringssl_256();
+
 /* End of add, Abu Naser */
 int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
              MPI_Comm comm) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3);
