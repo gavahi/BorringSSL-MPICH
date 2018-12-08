@@ -11,7 +11,7 @@
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
-char deciphertext[4194304+18];
+unsigned char Ideciphertext[4194304+18];
  //int ADDITIONAL_DATA_LEN2=6;
  // char nonce2[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
  // char ADDITIONAL_DATA2[6] = {'1','2','3','4','5','6'};
@@ -172,80 +172,27 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
 /* Added by Abu Naser */
 int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
-int mpi_errno = MPI_SUCCESS;
-//int var = sodium_init();
- int ADDITIONAL_DATA_LEN = 6;
-int i;
-//unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
- char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
- char ADDITIONAL_DATA[6] ={'1','2','3','4','5','6'};
-//void * ciphertext;
-int ciphertext_len;
-MPI_Status status;
-//unsigned char decrypted[MESSAGE_LEN];
-//unsigned char * decrypted;
-    //unsigned long long decrypted_len;
-//unsigned char * MESSAGE; 
-//int * data;
-//unsigned char * c;
+    int mpi_errno = MPI_SUCCESS;
+    MPI_Status status;
+    unsigned long ciphertext_len = 0;
+    unsigned long decrypted_len = 0;
 
-//ciphertext = (char *) MPIU_Malloc(((count) * sizeof(datatype)) + 16);
-//memcpy(temp_buf,buf,sizeof(datatype) * count);
-// for(i=0;i<count;i++){
-// printf("MPI_SEC_Recv: temp_buf=%x,%c\n",*temp_buf,*temp_buf);fflush(stdout);
-// }
+    int  recvtype_sz;           
+    MPI_Type_size(datatype, &recvtype_sz);         
+    
+    ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    mpi_errno = MPI_Irecv(Ideciphertext, ciphertext_len, MPI_CHAR, source, tag, comm,request);
+    MPI_Wait(request, &status);
 
-mpi_errno=MPI_Irecv(deciphertext, (count+16), datatype, source, tag, comm,request);
-//printf("MPI_SEC_IRecv: received ciphertext=");fflush(stdout);
-
-//for(i=0;i<count+16;i++){
-//printf("%x,",*((unsigned char
-//*)(ciphertext+i)));fflush(stdout);
-
-//}
-//printf("\n");
-//fflush(stdout);
-
-MPI_Wait(request, &status);
-ciphertext_len = count + 16;
-
- //EVP_AEAD_CTX *dectx = NULL; 
- long unsigned decrypted_len=0;
- //dectx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
-  //                          key,
-   //                         32, 0);  
-
-if(!EVP_AEAD_CTX_open(ctx, buf,
-                                     &decrypted_len, count,
-                                     nonce, 12,
-                                     deciphertext, ciphertext_len,
-                                     ADDITIONAL_DATA, ADDITIONAL_DATA_LEN)){
-            printf("Decryption error.\n");fflush(stdout);
-            //for(j=0;j<decrypted_len;j++)
-            //        printf("%c",(unsigned int)decrypted[j]);
-              //  printf("\n");        
-            }
-//	else{
-       //    printf("decryption done: EVP_aead_aes_256_gcm\n");
-     //  }
-            
-//var = crypto_aead_aes256gcm_decrypt(buf, &count,
-//      NULL,ciphertext, ciphertext_len,
-//      ADDITIONAL_DATA,ADDITIONAL_DATA_LEN, nonce, key);
-
-//printf("2MPI_SEC_IRecv: decrypted text\n");fflush(stdout);
-
-//for(i=0;i<count;i++){
-//printf("%x,",*((unsigned char*)(buf+i)));fflush(stdout);
-//}
-
-//printf("\n");
-//fflush(stdout); 
-
-//memcpy(buf,temp_buf,sizeof(datatype)*count);
-
-//MPIU_Free(ciphertext);
-//EVP_AEAD_CTX_free(dectx);
+    if(!EVP_AEAD_CTX_open(ctx, buf,
+                        &decrypted_len, ciphertext_len,
+                        nonce, 12,
+                        Ideciphertext, ciphertext_len,
+                        NULL, 0)){
+            printf("Decryption error.\n");
+            fflush(stdout);
+        }
+        
 return mpi_errno;
 
 }

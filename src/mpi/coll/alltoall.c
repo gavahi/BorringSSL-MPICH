@@ -6,6 +6,10 @@
  */
 
 #include "mpiimpl.h"
+/* Added by Abu Naser */
+unsigned char alltoall_ciphertext_sendbuf[536870912+200];
+unsigned char alltoall_ciphertext_recvbuf[536870912+200];
+/* End of add */
 
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
@@ -742,3 +746,89 @@ int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
+
+/* Added by Abu Naser */
+int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+	int var;
+	
+    int sendtype_sz, recvtype_sz;
+    unsigned long long ciphertext_sendbuf_len = 0;
+    sendtype_sz= recvtype_sz= 0;
+
+    var=MPI_Type_size(sendtype, &sendtype_sz);
+    var=MPI_Type_size(recvtype, &recvtype_sz);
+
+    MPID_Comm_get_ptr( comm, comm_ptr);
+	int rank;
+	rank = comm_ptr->rank;
+
+	unsigned long long count=0;
+    unsigned int next, dest;
+	unsigned long long t=0;
+    t = (unsigned long long)(sendtype_sz*sendcount);
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*sendcount));
+    //printf("t=%llu ciphertext_sendbuf_len=%llu\n",t,ciphertext_sendbuf_len);
+    for(unsigned int j = 0; j < comm_ptr->local_size; j++){
+        next =(unsigned long long)(j*(sendcount*sendtype_sz));
+        dest =(unsigned long long)(j*((sendcount*sendtype_sz)+16));
+        /*
+        var = crypto_aead_aes256gcm_encrypt_afternm(alltoall_ciphertext_sendbuf+dest, &ciphertext_sendbuf_len,
+            sendbuf+next, t,
+            NULL, 0,
+            NULL, nonce, (const crypto_aead_aes256gcm_state *) &ctx);
+        if(var != 0)
+            printf("Encryption failed\n");fflush(stdout); 
+        */
+        if(!EVP_AEAD_CTX_seal(ctx, alltoall_ciphertext_sendbuf+dest,
+                         &ciphertext_sendbuf_len, max_out_len,
+                         nonce, 12,
+                         sendbuf+next, t,
+                        NULL, 0)){
+              printf("Error in encryption\n");
+              fflush(stdout);
+        }         
+         //printf(":: rank=%d will send %u bytes, status=%d \n", comm_ptr->rank, ciphertext_sendbuf_len, var); fflush(stdout);    
+     }        
+               
+   // printf(":: rank=%d will send %u bytes, status=%d \n", comm_ptr->rank, ciphertext_sendbuf_len, var); fflush(stdout);
+    
+   //unsigned long long procees_number = (unsigned long long )comm_ptr->local_size;
+    //unsigned long long cipher_length = ciphertext_sendbuf_len * procees_number;
+    mpi_errno=MPI_Alltoall(alltoall_ciphertext_sendbuf, ciphertext_sendbuf_len, MPI_CHAR,
+                  alltoall_ciphertext_recvbuf, (recvcount*recvtype_sz) + 16, MPI_CHAR, comm);
+
+ 
+ 
+    
+    for(unsigned int i = 0; i < comm_ptr->local_size; i++){
+        next =(unsigned long long)(i*((recvcount*recvtype_sz) + 16));
+        dest =(unsigned long long)(i*(recvcount*recvtype_sz));
+       // printf("next=%llu dest=%llu\n",next,dest);fflush(stdout);
+       /*
+        var = crypto_aead_aes256gcm_decrypt_afternm(((recvbuf+dest)), &count,
+                                  NULL,
+                                  (alltoall_ciphertext_recvbuf+next), (unsigned long long)((recvcount*recvtype_sz)+16),
+                                  NULL,
+                                  0,
+                                  nonce,(const crypto_aead_aes256gcm_state *) &ctx);
+        if(var != 0)
+            printf("Decryption failed\n");fflush(stdout); 
+        */
+        if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
+                        &count, (unsigned long long)((recvcount*recvtype_sz)+16),
+                        nonce, 12,
+                        (alltoall_ciphertext_recvbuf+next), (unsigned long long)((recvcount*recvtype_sz)+16),
+                        NULL, 0)){
+                    printf("Decryption error\n");fflush(stdout);        
+            }       
+        //printf(":: rank=%d receive %llu bytes, status=%d %02x\n", comm_ptr->rank, count, var, *((unsigned char *)(recvbuf+ dest))); fflush(stdout);
+    }
+    
+    return mpi_errno;
+}
+/* End of add. */    

@@ -15,7 +15,7 @@
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
-char deciphertext[4194304+18];
+unsigned char deciphertext[4194304+18];
  //int ADDITIONAL_DATA_LEN1=6;
   //char nonce1[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
   //char ADDITIONAL_DATA1[6] = {'1','2','3','4','5','6'};
@@ -225,72 +225,25 @@ int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int ta
 	     MPI_Comm comm, MPI_Status *status)
 {
     int mpi_errno = MPI_SUCCESS;
-   // int var = sodium_init();
-    // int ADDITIONAL_DATA_LEN = 6;
-    //int MESSAGE_LEN = 4;
-    int i;
-    //unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
-     char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
-   //  char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
-    //unsigned char ciphertext[MESSAGE_LEN + crypto_aead_aes256gcm_ABYTES];
-    //void * ciphertext;
-    int ciphertext_len, c;
-   // EVP_AEAD_CTX *dectx = NULL; 
-    long unsigned decrypted_len=0;
-    //unsigned char decrypted[MESSAGE_LEN];
-    //unsigned char * decrypted;
-	//unsigned long long decrypted_len;
-    //unsigned char * MESSAGE; 
-    //int  * data;
-    //unsigned char * c;
-   /* dectx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
-                            key,
-                            32, 0);  */   
-    //ciphertext = (char *) MPIU_Malloc(((count) * sizeof(datatype))  + 16);;
 
-    //memcpy(temp_buf,buf,sizeof(datatype) * count);
+    unsigned long  ciphertext_len;
+    unsigned long decrypted_len=0;
 
-   // for(i=0;i<count;i++){
-   //     printf("MPI_SEC_Recv: temp_buf=%x,%c\n",*temp_buf,*temp_buf);fflush(stdout);
-   // }
- 
-    mpi_errno=MPI_Recv(deciphertext, (count+16), datatype, source, tag, comm,status);
-     //printf("recv: received ciphertext length is =%d",count+16);fflush(stdout);
-   // for(i=0;i<count+16;i++){
-     //   printf("%x,",*((unsigned char *)(ciphertext+i)));fflush(stdout);
-   // }
-   // printf("\n");
-    //fflush(stdout);
-    ciphertext_len = (count) + 16; // count will not work for integer data type, in that case need to multiply with data type
-   // var =  crypto_aead_aes256gcm_decrypt(buf, &c,
-   //                               NULL,
-   //                               ciphertext, ciphertext_len,
-   //                               ADDITIONAL_DATA,
-   //                               ADDITIONAL_DATA_LEN,
-   //                               nonce, key);
-				if(!EVP_AEAD_CTX_open(ctx, buf,
-                                     &decrypted_len, count,
-                                     nonce, 12,
-                                     deciphertext, ciphertext_len,
-                                     NULL, 0)){
-            printf("Decryption error");fflush(stdout);
-            //for(j=0;j<decrypted_len;j++)
-            //        printf("%c",(unsigned int)decrypted[j]);
-              //  printf("\n");        
+    int  recvtype_sz;           
+    MPI_Type_size(datatype, &recvtype_sz);         
+    
+    ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    mpi_errno = MPI_Recv(deciphertext, ciphertext_len, MPI_CHAR, source, tag, comm, status);
+   
+	if(!EVP_AEAD_CTX_open(ctx, buf,
+                        &decrypted_len, ciphertext_len,
+                        nonce, 12,
+                        deciphertext, ciphertext_len,
+                        NULL, 0)){
+                    printf("Decryption error\n");fflush(stdout);        
             }
-            //else{
-              //  printf("decryption success\n");fflush(stdout);
-            //}
-    // printf("MPI_SEC_Recv: decrypted text=");fflush(stdout);
-   // for(i=0;i<count;i++){
-     //   printf("%x,",*((unsigned char *)(buf+i)));fflush(stdout);
-   // }
-   // printf("\n");
-    //fflush(stdout);                              
-
-    //memcpy(buf,temp_buf,sizeof(datatype)*count);
-    //MPIU_Free(ciphertext);
-    //EVP_AEAD_CTX_free(dectx);
+           
     return mpi_errno;
 }
+
 /*End of adding */

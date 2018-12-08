@@ -6,6 +6,19 @@
  */
 
 #include "mpiimpl.h"
+/* added by abu naser */
+
+//unsigned char alltoallv_ciphertext_sendbuf[4194304*4+20];
+//unsigned char alltoallv_ciphertext_recvbuf[4194304*4+20];
+// 2^27 = 134217728 
+// 134217728 * 4 = 536870912
+// 8589934592 = had some probem for class D
+unsigned char alltoallv_ciphertext_sendbuf[536870912+200];
+unsigned char alltoallv_ciphertext_recvbuf[536870912+200];
+int cipher_send_dis[50000], cipher_recv_dis[50000];
+int cipher_sendcounts[50000], cipher_recvcounts[50000];
+
+/* end of add */
 
 /* -- Begin Profiling Symbol Block for routine MPI_Alltoallv */
 #if defined(HAVE_PRAGMA_WEAK)
@@ -550,3 +563,174 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
+
+/* Added by Abu Naser */
+int MPI_SEC_Alltoallv(const void *sendbuf, const int *sendcounts,
+                  const int *sdispls, MPI_Datatype sendtype, void *recvbuf,
+                  const int *recvcounts, const int *rdispls, MPI_Datatype recvtype,
+                  MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+     MPID_Comm *comm_ptr = NULL;
+    int var;
+	
+    int sendtype_sz, recvtype_sz;
+    unsigned long long ciphertext_sendbuf_len = 0;
+    sendtype_sz= recvtype_sz= 0;
+
+    var=MPI_Type_size(sendtype, &sendtype_sz);
+    var=MPI_Type_size(recvtype, &recvtype_sz);
+
+    MPID_Comm_get_ptr( comm, comm_ptr);
+	int rank;
+	rank = comm_ptr->rank;
+
+	unsigned long long count=0;
+    unsigned int next, dest;
+	unsigned long long t=0;
+    unsigned int j;
+    int k;
+    int send_index = 0;
+    int recv_index = 0;
+    unsigned long   max_out_len;
+    //printf("t=%llu ciphertext_sendbuf_len=%llu\n",t,ciphertext_sendbuf_len);
+    dest = 0;
+    cipher_send_dis[0] = 0; // send data to 0 process from 0.
+    cipher_recv_dis[0] = 0; // reveive data from 0 process to 0.
+    
+    for(j = 0, k=0; j < comm_ptr->local_size; j++, k++){
+        t = (unsigned long long)(sendtype_sz*sendcounts[k]);
+        max_out_len = t+16;
+        next = (unsigned int)(sdispls[k]*sendtype_sz);
+        //recv_dis[k] = (rdispls[k]*sendtype_sz)+16;
+        //dest = (unsigned long long)(rdispls[k]*(sendtype_sz*sendcounts[k]+16));
+        //send_dis[k] = sdispls[k]*((sdispls[k]*sendtype_sz)+16);
+        //recv_dis[k] = (rdispls[k]*sendtype_sz)+16; 
+      /*
+      printf("rank=%d nonce before encryption: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+      comm_ptr->rank,nonce[0],nonce[1],nonce[2],nonce[3],nonce[4],nonce[5],nonce[6],nonce[7],nonce[8],nonce[9],nonce[10],nonce[11]);
+      fflush(stdout);
+*/
+    /*    
+        var = crypto_aead_aes256gcm_encrypt_afternm(alltoallv_ciphertext_sendbuf+send_index, &ciphertext_sendbuf_len,
+            sendbuf+next, t,
+            NULL, 0,
+            NULL, nonce, (const crypto_aead_aes256gcm_state *) &ctx); 
+
+        if(var != 0)
+            printf("Encryption failed\n");fflush(stdout);
+        */    
+        if(!EVP_AEAD_CTX_seal(ctx, alltoallv_ciphertext_sendbuf+send_index,
+                         &ciphertext_sendbuf_len, max_out_len,
+                         nonce, 12,
+                         sendbuf+next, t,
+                        NULL, 0)){
+              printf("Error in encryption\n");
+              fflush(stdout);
+        }        
+
+           
+        //dest = (unsigned int)(sendtype_sz*sendcounts[k]+16);
+        
+        /* update new displacement for send and receive */
+        cipher_send_dis[k] = send_index;
+        cipher_recv_dis[k] = recv_index;
+
+        send_index +=(sendcounts[k]*sendtype_sz+16);
+        recv_index +=(recvcounts[k]*recvtype_sz+16);
+
+        /* update cipher sendcounts and receive counts */
+        cipher_sendcounts[k] = (sendcounts[k]*sendtype_sz+16);
+        cipher_recvcounts[k] = (recvcounts[k]*recvtype_sz+16); 
+        /*
+        printf("rank=%d cipher_sendcounts[%d]=%d cipher_recvcounts[%d]=%d\n", comm_ptr->rank,k,cipher_sendcounts[k],k,cipher_recvcounts[k]);
+        fflush(stdout);
+        printf("::rank=%d will send (%d) bytes to process (%d), receive (%d) bytes from(%d), encrypted=%llu, status=%d, \
+        send_dis[%d]=%d recv_dis[%d]=%d\n",
+        comm_ptr->rank, cipher_sendcounts[j], j,cipher_recvcounts[j], j,
+        ciphertext_sendbuf_len,var,k,  cipher_send_dis[k],k,cipher_recv_dis[k] ); fflush(stdout);   
+        */ 
+     }
+/*
+      printf("rank=%d encrypted text snd: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \
+        %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+       comm_ptr->rank,(unsigned char)alltoallv_ciphertext_sendbuf[0],(unsigned char)alltoallv_ciphertext_sendbuf[1],
+       (unsigned char)alltoallv_ciphertext_sendbuf[2],(unsigned char)alltoallv_ciphertext_sendbuf[3],
+       (unsigned char)alltoallv_ciphertext_sendbuf[4],(unsigned char)alltoallv_ciphertext_sendbuf[5],
+       (unsigned char)alltoallv_ciphertext_sendbuf[6],(unsigned char)alltoallv_ciphertext_sendbuf[7],
+       (unsigned char)alltoallv_ciphertext_sendbuf[8],(unsigned char)alltoallv_ciphertext_sendbuf[9],
+       (unsigned char)alltoallv_ciphertext_sendbuf[10],(unsigned char)alltoallv_ciphertext_sendbuf[11],
+       (unsigned char)alltoallv_ciphertext_sendbuf[12],(unsigned char)alltoallv_ciphertext_sendbuf[13],
+       (unsigned char)alltoallv_ciphertext_sendbuf[14],(unsigned char)alltoallv_ciphertext_sendbuf[15],
+       (unsigned char)alltoallv_ciphertext_sendbuf[16],(unsigned char)alltoallv_ciphertext_sendbuf[17],
+       (unsigned char)alltoallv_ciphertext_sendbuf[18], (unsigned char)alltoallv_ciphertext_sendbuf[18]); fflush(stdout);
+*/
+     var=MPI_Alltoallv(alltoallv_ciphertext_sendbuf, cipher_sendcounts,
+                  cipher_send_dis, MPI_CHAR, alltoallv_ciphertext_recvbuf,
+                  cipher_recvcounts, cipher_recv_dis, MPI_CHAR, comm);
+
+   // printf("calling done MPI_Alltoallv\n");
+   /*
+printf("rank=%d encrypted text rcv: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \
+        %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+       comm_ptr->rank,(unsigned char)alltoallv_ciphertext_recvbuf[0],(unsigned char)alltoallv_ciphertext_recvbuf[1],
+       (unsigned char)alltoallv_ciphertext_recvbuf[2],(unsigned char)alltoallv_ciphertext_recvbuf[3],
+       (unsigned char)alltoallv_ciphertext_recvbuf[4],(unsigned char)alltoallv_ciphertext_recvbuf[5],
+       (unsigned char)alltoallv_ciphertext_recvbuf[6],(unsigned char)alltoallv_ciphertext_recvbuf[7],
+       (unsigned char)alltoallv_ciphertext_recvbuf[8],(unsigned char)alltoallv_ciphertext_recvbuf[9],
+       (unsigned char)alltoallv_ciphertext_recvbuf[10],(unsigned char)alltoallv_ciphertext_recvbuf[11],
+       (unsigned char)alltoallv_ciphertext_recvbuf[12],(unsigned char)alltoallv_ciphertext_recvbuf[13],
+       (unsigned char)alltoallv_ciphertext_recvbuf[14],(unsigned char)alltoallv_ciphertext_recvbuf[15],
+       (unsigned char)alltoallv_ciphertext_recvbuf[16],(unsigned char)alltoallv_ciphertext_recvbuf[17],
+       (unsigned char)alltoallv_ciphertext_recvbuf[18], (unsigned char)alltoallv_ciphertext_recvbuf[18]); fflush(stdout);   
+count=0;
+printf("rank=%d cipher_recvcounts[0]=%d\n",comm_ptr->rank,cipher_recvcounts[0]);fflush(stdout);  
+printf("rank=%d nonce before decryption: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+      comm_ptr->rank,nonce[0],nonce[1],nonce[2],nonce[3],nonce[4],nonce[5],nonce[6],nonce[7],nonce[8],nonce[9],nonce[10],nonce[11]);
+      fflush(stdout);  
+      */
+/*      
+var = crypto_aead_aes256gcm_decrypt_afternm((recvbuf), &count,
+                                  NULL,
+                                  (alltoallv_ciphertext_recvbuf), (unsigned long long)(cipher_recvcounts[0]),
+                                  NULL,
+                                  0,
+                                  nonce,(const crypto_aead_aes256gcm_state *) &ctx);
+        if(var != 0)
+            printf("Decryption failed\n");fflush(stdout);  
+        printf(":: rank=%d receive %llu bytes, status=%d %u\n", comm_ptr->rank, count, var, *((unsigned int *)(recvbuf))); fflush(stdout);
+  */  
+
+
+     for(unsigned int i = 0, k=0; i < comm_ptr->local_size; i++, k++){
+        
+        /* decrypt from modified location. */
+        next = (unsigned int)cipher_recv_dis[k];
+
+        /* receive in actual destination as user passed */
+        dest = (unsigned int )(rdispls[k]*recvtype_sz);
+
+       // printf("rank=%d next=%u dest=%u cipher_recvcounts[%d]=%d \
+       // cipher_recv_dis[%d]=%d\n", comm_ptr->rank,next,dest,k,cipher_recvcounts[k],k,next);fflush(stdout);
+        /*
+        var = crypto_aead_aes256gcm_decrypt_afternm(((recvbuf+dest)), &count,
+                                  NULL,
+                                  (alltoallv_ciphertext_recvbuf+next), (unsigned long long)(cipher_recvcounts[k]),
+                                  NULL,
+                                  0,
+                                  nonce,(const crypto_aead_aes256gcm_state *) &ctx);
+        if(var != 0)
+            printf("Decryption failed\n");fflush(stdout);
+        */    
+         if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
+                        &count, (unsigned long long)(cipher_recvcounts[k]),
+                        nonce, 12,
+                        (alltoallv_ciphertext_recvbuf+next), (unsigned long long)(cipher_recvcounts[k]),
+                        NULL, 0)){
+                    printf("Decryption error\n");fflush(stdout);        
+            }       
+       // printf(":: rank=%d receive %llu bytes, status=%d %u\n", comm_ptr->rank, count, var, *((unsigned int *)(recvbuf+ dest))); fflush(stdout);
+    }                       
+    return mpi_errno;
+}
+/* End of add. */    

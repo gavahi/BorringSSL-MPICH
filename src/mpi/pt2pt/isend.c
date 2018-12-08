@@ -6,15 +6,14 @@
  */
 
 #include "mpiimpl.h"
-/* Abu Naser */
+
+/* added by Abu Naser */
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
-char ciphertext[4194304+18];
- //int ADDITIONAL_DATA_LEN3=6;
-  //char nonce3[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
- // char ADDITIONAL_DATA3[6] = {'1','2','3','4','5','6'};
+unsigned char Iciphertext[4194304+18];
+
 /* End of add. */
 /* -- Begin Profiling Symbol Block for routine MPI_Isend */
 #if defined(HAVE_PRAGMA_WEAK)
@@ -168,60 +167,27 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
 
-int mpi_errno = MPI_SUCCESS;
-//int var = sodium_init();
- int ADDITIONAL_DATA_LEN = 6;
-//unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
- char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
- char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
-//char * ciphertext;
-int ciphertext_len;
-MPI_Status status;
+    int mpi_errno = MPI_SUCCESS;
+    MPI_Status status;
 
-//ciphertext=(char *) MPIU_Malloc(((count) * sizeof(datatype)) + 16);
-//int * val,i;
-//unsigned char * c;
-int   max_out_len = 64 + count;
-//EVP_AEAD_CTX *enctx = NULL; 
-    //enctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
-       //                     key,
-         //                   32, 0);
+    unsigned long ciphertext_len=0;
+    int  sendtype_sz;           
+    
+    MPI_Type_size(datatype, &sendtype_sz);         
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*count));
 
-//crypto_aead_aes256gcm_encrypt(ciphertext, &ciphertext_len, buf, count,
-//                              ADDITIONAL_DATA, ADDITIONAL_DATA_LEN,
-//                              NULL, nonce, key);
-
-
-if(!EVP_AEAD_CTX_seal(ctx, ciphertext,
-                                     &ciphertext_len, max_out_len,
-                                     nonce, 12,
-                                     buf,  count,
-                                     ADDITIONAL_DATA, ADDITIONAL_DATA_LEN)
-            ){
-                //printf("Encryption done: EVP_aead_aes_256_gcm, ciphertext length is %lu count=%d\n",ciphertext_len,count);fflush(stdout);
-                //for(j=0;j<ciphertext_len;j++)
-                //    printf("%02x ",(unsigned int)ciphertext[j]);
-                //printf("\n");
-                printf("error in encryption\n");fflush(stdout);    
-
+    if(!EVP_AEAD_CTX_seal(ctx, Iciphertext,
+                        &ciphertext_len, max_out_len,
+                        nonce, 12,
+                        buf,  (unsigned long)(count * sendtype_sz),
+                        NULL, 0)){
+                printf("Error in encryption\n");
+                fflush(stdout);    
             }
-           // else{
-               // printf("Encryption done: EVP_aead_aes_256_gcm, ciphertext length is %lu count=%d\n",ciphertext_len,count);fflush(stdout);
-                //for(j=0;j<ciphertext_len;j++)
-                //    printf("%02x ",(unsigned int)ciphertext[j]);
-                //printf("\n");    
+         
+    mpi_errno = MPI_Isend(Iciphertext, ciphertext_len, MPI_CHAR, dest, tag, comm, request);
+    MPI_Wait(request, &status);
 
-                //printf("error in encryption\n");
-           // }
-//printf("MPI_Sec_Isend\n");
-//fflush(stdout);
-   // printf("\n"); fflush(stdout);
-mpi_errno=MPI_Isend(ciphertext, ciphertext_len, datatype, dest, tag, comm, request);
-MPI_Wait(request, &status);
-
-//MPIU_Free(ciphertext);
-//EVP_AEAD_CTX_free(enctx);
-
-return mpi_errno;
+ return mpi_errno;
 }
-/* Added by abu naser. */
+/* End of Added by abu naser. */
