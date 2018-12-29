@@ -7,6 +7,10 @@
 
 #include "mpiimpl.h"
 #include "collutil.h"
+#include <openssl/evp.h>
+#include <openssl/aes.h>
+#include <openssl/err.h>
+#include <openssl/aead.h>
 
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
@@ -1263,4 +1267,62 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
     mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
+}
+
+int MPI_SEC_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
+{
+
+int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+    MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPID_MPI_STATE_DECL(MPID_STATE_MPI_BCAST);
+	
+	int ciphertext_len = 0;
+	const static char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
+    const static char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
+	int ADDITIONAL_DATA_LEN = 6;
+	int max_out_len = 64 + count;
+	long unsigned decrypted_len=0;
+	
+	char * ciphertext;
+	ciphertext=(char*) MPIU_Malloc(((count+32) * sizeof(datatype)) );
+	
+	char * deciphertext;
+	deciphertext=(char*) MPIU_Malloc(((count+32) * sizeof(datatype)) );
+	
+	MPID_Comm_get_ptr( comm, comm_ptr );
+	
+	int rank;
+	rank = comm_ptr->rank;
+	
+	if (rank != root) {
+		
+		//my_print(&sendbuf,count,"This Send_Plain_Text");
+		
+		if(!EVP_AEAD_CTX_seal(ctx, ciphertext,&ciphertext_len, max_out_len,nonce, 12,sendbuf,  count,NULL, 0)
+            ){
+              printf("error in encryption\n");fflush(stdout);
+            }
+		
+		//ciphertext_len = encrypt_Reduce(&sendbuf, count, aad, strlen(aad), key, iv, ciphertext, send_tag);
+	
+		MPI_Reduce(ciphertext, recvbuf, count+16, datatype, op,root,comm);	
+
+	}
+	else if (rank == root) {	
+		
+		ciphertext_len=count+16;
+		
+		MPI_Reduce(sendbuf, deciphertext, count+16, datatype, op,root,comm);
+		
+		if(!EVP_AEAD_CTX_open(ctx, recvbuf,&decrypted_len, count,nonce, 12,deciphertext, ciphertext_len,                                     NULL, 0)){
+            printf("Decryption error");fflush(stdout);           }
+		
+		//my_print(&recvbuf,count,"This Recv_Plain_Text =");	
+	}
+	
+	MPIU_Free(ciphertext);
+	
+	return mpi_errno;
+
 }

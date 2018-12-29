@@ -1008,6 +1008,7 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 }
 
 /* Added by Abu Naser */
+/* Variable nonce */
 int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
                   MPI_Comm comm)
@@ -1017,7 +1018,78 @@ int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 	int var;
 	
     int sendtype_sz, recvtype_sz;
-    unsigned long long ciphertext_sendbuf_len = 0;
+    unsigned long  ciphertext_sendbuf_len = 0;
+    sendtype_sz= recvtype_sz= 0;
+
+    var=MPI_Type_size(sendtype, &sendtype_sz);
+    var=MPI_Type_size(recvtype, &recvtype_sz);
+
+    MPID_Comm_get_ptr( comm, comm_ptr);
+	int rank;
+	rank = comm_ptr->rank;
+
+    /* Set the nonce in send_ciphertext */
+    RAND_bytes(ciphertext_sendbuf, 12); // 12 bytes of nonce
+    /*nonceCounter++;
+    memset(ciphertext_sendbuf, 0, 8);
+    ciphertext_sendbuf[8] = (nonceCounter >> 24) & 0xFF;
+    ciphertext_sendbuf[9] = (nonceCounter >> 16) & 0xFF;
+    ciphertext_sendbuf[10] = (nonceCounter >> 8) & 0xFF;
+    ciphertext_sendbuf[11] = nonceCounter & 0xFF;*/
+	
+	unsigned long t=0;
+    t = (unsigned long)(sendtype_sz*sendcount);
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*sendcount));
+    
+    if(!EVP_AEAD_CTX_seal(ctx, ciphertext_sendbuf+12,
+                         &ciphertext_sendbuf_len, max_out_len,
+                         ciphertext_sendbuf, 12,
+                         sendbuf,  t,
+                        NULL, 0)){
+              printf("Error in encryption: allgather\n");
+              fflush(stdout);
+        }         
+               
+  
+    
+    mpi_errno=MPI_Allgather(ciphertext_sendbuf, ciphertext_sendbuf_len+12, MPI_CHAR,
+                  ciphertext_recvbuf, ((recvcount*recvtype_sz) + 16+12), MPI_CHAR, comm);
+
+    
+    unsigned long count=0;
+    unsigned long next, dest;
+    unsigned int i;
+    for( i = 0; i < comm_ptr->local_size; i++){
+        next =(unsigned long )(i*((recvcount*recvtype_sz) + 16+12));
+        dest =(unsigned long )(i*(recvcount*recvtype_sz));
+        
+
+        if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
+                        &count, (unsigned long )((recvcount*recvtype_sz)+16),
+                         (ciphertext_recvbuf+next), 12,
+                        (ciphertext_recvbuf+next+12), (unsigned long )((recvcount*recvtype_sz)+16),
+                        NULL, 0)){
+                    printf("Decryption error: allgather\n");fflush(stdout);        
+            }                               
+       
+    }
+    
+
+    return mpi_errno;
+}
+
+/* Fixed nonce */
+#if 0
+int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+	int var;
+	
+    int sendtype_sz, recvtype_sz;
+    unsigned long  ciphertext_sendbuf_len = 0;
     sendtype_sz= recvtype_sz= 0;
 
     var=MPI_Type_size(sendtype, &sendtype_sz);
@@ -1052,12 +1124,12 @@ int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                   ciphertext_recvbuf, (recvcount*recvtype_sz) + 16, MPI_CHAR, comm);
 
     
-    unsigned long long count=0;
-    unsigned int next, dest;
-    
-    for(unsigned int i = 0; i < comm_ptr->local_size; i++){
-        next =(unsigned long long)(i*((recvcount*recvtype_sz) + 16));
-        dest =(unsigned long long)(i*(recvcount*recvtype_sz));
+    unsigned long count=0;
+    unsigned long next, dest;
+    unsigned int i;
+    for(i = 0; i < comm_ptr->local_size; i++){
+        next =(unsigned long )(i*((recvcount*recvtype_sz) + 16));
+        dest =(unsigned long )(i*(recvcount*recvtype_sz));
        // printf("next=%llu dest=%llu\n",next,dest);fflush(stdout);
         /*
         var = crypto_aead_aes256gcm_decrypt_afternm(((recvbuf+dest)), &count,
@@ -1071,9 +1143,9 @@ int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
         */    
 
         if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
-                        &count, (unsigned long long)((recvcount*recvtype_sz)+16),
+                        &count, (unsigned long )((recvcount*recvtype_sz)+16),
                         nonce, 12,
-                        (ciphertext_recvbuf+next), (unsigned long long)((recvcount*recvtype_sz)+16),
+                        (ciphertext_recvbuf+next), (unsigned long )((recvcount*recvtype_sz)+16),
                         NULL, 0)){
                     printf("Decryption error\n");fflush(stdout);        
             }                               
@@ -1083,4 +1155,5 @@ int MPI_SEC_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 
     return mpi_errno;
 }
+#endif
 /* End of add. */                  

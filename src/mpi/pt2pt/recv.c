@@ -221,6 +221,38 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 }
 
 /*Added by Abu Naser, june 11 */
+/* Variable nonce */
+int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
+	     MPI_Comm comm, MPI_Status *status)
+{
+    int mpi_errno = MPI_SUCCESS;
+
+    unsigned long  ciphertext_len;
+    unsigned long decrypted_len=0;
+
+    int  recvtype_sz;           
+    MPI_Type_size(datatype, &recvtype_sz);         
+    
+    ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    
+    /* Receive additional 12 bytes for the nonce and 16 bytes for the tag */
+    mpi_errno = MPI_Recv(deciphertext, ciphertext_len+12, MPI_CHAR, source, tag, comm, status);
+   
+    /* First 12 bytes of the deciphertext is nonce. So ciphertext */ 
+    /* begins from deciphertext+12. And nonce from deciphertext   */   
+	if(!EVP_AEAD_CTX_open(ctx, buf,
+                        &decrypted_len, (ciphertext_len),
+                        deciphertext, 12,
+                        (deciphertext+12), ciphertext_len,
+                        NULL, 0)){
+                    printf("Decryption error: recv\n");fflush(stdout);        
+            }
+           
+    return mpi_errno;
+}
+
+/* Fixed nonce implementation */
+#if 0
 int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 	     MPI_Comm comm, MPI_Status *status)
 {
@@ -245,5 +277,5 @@ int MPI_SEC_Recv(void *buf, int count, MPI_Datatype datatype, int source, int ta
            
     return mpi_errno;
 }
-
+#endif
 /*End of adding */

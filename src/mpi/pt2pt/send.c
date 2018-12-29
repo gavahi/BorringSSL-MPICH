@@ -6,30 +6,14 @@
  */
 
 #include "mpiimpl.h"
-/* added by abu naser */
-//#include <sodium.h> // added by abu naser
-//#include "/home/mpiuser/boringssl/include/openssl/evp.h"
-//#include "/home/mpiuser/boringssl/include/openssl/aes.h"
-//#include "/home/mpiuser/boringssl/include/openssl/err.h"
-#include <openssl/evp.h>
-#include <openssl/aes.h>
-#include <openssl/err.h>
-#include <openssl/aead.h>
+
 
 unsigned char ciphertext[4194304+18];
 EVP_AEAD_CTX *ctx = NULL;
 unsigned char key [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
-unsigned char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};   
+unsigned char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};  
+int nonceCounter; 
 
- //char nonce[16];
- //char ADDITIONAL_DATA[10];
-  //int ADDITIONAL_DATA_LEN=6;
-  //
-  //char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
-//unsigned int ADDITIONAL_DATA_LEN;
-//unsigned char nonce[12];
-//unsigned char ADDITIONAL_DATA[6];
-/* end of add */
 
 /* -- Begin Profiling Symbol Block for routine MPI_Send */
 #if defined(HAVE_PRAGMA_WEAK)
@@ -284,6 +268,45 @@ int MPI_SEC_Send_primery(const void *buf, int count, MPI_Datatype datatype, int 
 }
 #endif
 
+/* variable nonce implementation */
+int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+	     MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    unsigned long ciphertext_len=0;
+    int  sendtype_sz;           
+    
+    MPI_Type_size(datatype, &sendtype_sz);         
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*count));
+    
+    /* Set the nonce in send_ciphertext */
+    RAND_bytes(ciphertext, 12); // 12 bytes of nonce
+    /*nonceCounter++;
+    memset(ciphertext, 0, 8);
+    ciphertext[8] = (nonceCounter >> 24) & 0xFF;
+    ciphertext[9] = (nonceCounter >> 16) & 0xFF;
+    ciphertext[10] = (nonceCounter >> 8) & 0xFF;
+    ciphertext[11] = nonceCounter & 0xFF;*/
+
+    /* ciphertext's first 12 byte is now nonce. so cipher will start from */
+    /* ciphertext+12. And nonce is from ciphertext                   */    
+    if(!EVP_AEAD_CTX_seal(ctx, ciphertext+12,
+                         &ciphertext_len, max_out_len,
+                         ciphertext, 12,
+                         buf,  (unsigned long)(count*sendtype_sz),
+                        NULL, 0)){
+              printf("error in encryption\n");
+              fflush(stdout);
+        }
+    
+    /* Sending additional 12 bytes for nonce */  
+	mpi_errno = MPI_Send(ciphertext, ciphertext_len+12, MPI_CHAR, dest, tag, comm);
+
+    return mpi_errno;
+}
+
+/* Fixed nonce implementation */
+#if 0
 int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
 	     MPI_Comm comm)
 {
@@ -307,8 +330,10 @@ int MPI_SEC_Send(const void *buf, int count, MPI_Datatype datatype, int dest, in
 
     return mpi_errno;
 }
+#endif
 
 void init_crypto(){
+    nonceCounter=0;
     ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
                             key,
                             32, 0);
@@ -318,33 +343,49 @@ void init_crypto(){
 
 void init_boringssl_256_siv(){
     //unsigned char key_boringssl_siv_32 [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
+    nonceCounter=0;
     ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm_siv(),
                             key,
                             32, 0);
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	if (world_rank == 0) printf("\n\t\t****** Secure Run with BoringSSL  256  GCM-SIV ********\n");
     return;                        
 }
 
 void init_boringssl_128_siv(){
    // unsigned char key_boringssl_siv_16 [16] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p'};
+    nonceCounter=0;
     ctx = EVP_AEAD_CTX_new(EVP_aead_aes_128_gcm_siv(),
                             key,
                             16, 0);
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	if (world_rank == 0) printf("\n\t\t****** Secure Run with BoringSSL  128  GCM-SIV ********\n");
     return;                        
 }
 
 void init_boringssl_128(){
    // unsigned char key_boringssl_16 [16] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p'};
+    nonceCounter=0;
     ctx = EVP_AEAD_CTX_new(EVP_aead_aes_128_gcm(),
                             key,
                             16, 0);
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	if (world_rank == 0) printf("\n\t\t****** Secure Run with BoringSSL  128  GCM ********\n");
     return;                        
 }
 
 void init_boringssl_256(){
     //unsigned char key_boringssl_32 [32] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','a','b','c','d','e','f'};
+    nonceCounter=0;
     ctx = EVP_AEAD_CTX_new(EVP_aead_aes_256_gcm(),
                             key,
                             32, 0);
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	if (world_rank == 0) printf("\n\t\t****** Secure Run with BoringSSL  256  GCM ********\n");
     return;                        
 }
 

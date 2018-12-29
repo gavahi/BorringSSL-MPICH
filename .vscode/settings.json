@@ -7,6 +7,7 @@
         "*.i": "c",
         "ratio": "cpp",
         "system_error": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "chrono": "c"
     }
 }

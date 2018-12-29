@@ -142,9 +142,17 @@ int usleep(useconds_t usec);
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
+#include <openssl/rand.h>
+
 extern EVP_AEAD_CTX *ctx;
 extern unsigned char key [32];
 extern unsigned char nonce[12];
+extern unsigned char Ideciphertext[3000][1100000];
+extern unsigned char * bufptr[100000];
+extern int reqCounter;
+extern int waitCounter; 
+extern int nonceCounter;
+
 
 /* end of add*/
 

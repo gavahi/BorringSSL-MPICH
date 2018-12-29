@@ -1619,18 +1619,7 @@ int MPI_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,
 }
 
 /* Added by abu naser */
-#if 0
-void my_print(void *print_buffer, int count,char s[])	//keep square brackets in signature
-{ 
-	printf("\n%s=\n",s);fflush(stdout);
-	for (int i=0 ; i<count ; i++){
-		printf("%2x ",*((unsigned char *)(print_buffer+i)));
-		fflush(stdout);
-	}
-	printf("\n");fflush(stdout);
-}
-#endif
-
+/* variable nonce */
 int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root, 
                MPI_Comm comm)
 {
@@ -1640,15 +1629,76 @@ int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,
     MPID_MPI_STATE_DECL(MPID_STATE_MPI_BCAST);
 	
 	unsigned long ciphertext_len = 0;
-	//const static char nonce[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
-    //const static char ADDITIONAL_DATA[6] = {'1','2','3','4','5','6'};
-	//int ADDITIONAL_DATA_LEN = 6;
-	//int max_out_len = 64 + count;
+    int  sendtype_sz=0;           
+    
+    MPI_Type_size(datatype, &sendtype_sz);         
+    unsigned long   max_out_len = (unsigned long)(16 + (sendtype_sz*count));
+     unsigned long decrypted_len=0;
+	
+	MPID_Comm_get_ptr( comm, comm_ptr );
+	int rank;
+	rank = comm_ptr->rank;
+
+	if (rank == root) {
+        
+        /* Set the nonce in send_ciphertext */
+        RAND_bytes(bcast_ciphertext, 12); // 12 bytes of nonce
+        /*nonceCounter++;
+        memset(bcast_ciphertext, 0, 8);
+        bcast_ciphertext[8] = (nonceCounter >> 24) & 0xFF;
+        bcast_ciphertext[9] = (nonceCounter >> 16) & 0xFF;
+        bcast_ciphertext[10] = (nonceCounter >> 8) & 0xFF;
+        bcast_ciphertext[11] = nonceCounter & 0xFF;*/
+
+		if(!EVP_AEAD_CTX_seal(ctx, (bcast_ciphertext+12),
+                            &ciphertext_len, max_out_len,
+                            bcast_ciphertext, 12, 
+                            buffer, (unsigned long)(count*sendtype_sz),
+                             NULL, 0)){  
+                    printf("Error in encryption: bcast\n");		
+                    fflush(stdout);
+            }
+		
+		mpi_errno = MPI_Bcast(bcast_ciphertext, ((sendtype_sz*count)+16+12), MPI_CHAR, root, comm);
+		
+	}
+	else if (rank != root) {	
+	
+		ciphertext_len = (unsigned long)((count*sendtype_sz)+16);
+		
+		mpi_errno = MPI_Bcast(bcast_deciphertext, ((sendtype_sz*count)+16+12), MPI_CHAR, root, comm);
+		
+		if(!EVP_AEAD_CTX_open(ctx, buffer, 
+                            &decrypted_len, (ciphertext_len-16), 
+                            bcast_deciphertext, 12, 
+                            (bcast_deciphertext+12), ciphertext_len, 
+                            NULL, 0)){
+                printf("Decryption error: bcast");	
+                fflush(stdout);
+            }  		
+		
+	}
+	
+	return mpi_errno;
+
+}
+
+/* Fixed nonce */
+#if 0
+int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root, 
+               MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+    MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPID_MPI_STATE_DECL(MPID_STATE_MPI_BCAST);
+	
+	unsigned long ciphertext_len = 0;
     int  sendtype_sz;           
     
     MPI_Type_size(datatype, &sendtype_sz);         
     unsigned long   max_out_len = (unsigned long)(16 + (sendtype_sz*count));
-	long unsigned decrypted_len=0;
+     unsigned long decrypted_len=0;
 	
 	MPID_Comm_get_ptr( comm, comm_ptr );
 	int rank;
@@ -1664,14 +1714,14 @@ int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,
                     fflush(stdout);
             }
 		
-		mpi_errno = MPI_Bcast(bcast_ciphertext, ciphertext_len, MPI_CHAR, 0, comm);
+		mpi_errno = MPI_Bcast(bcast_ciphertext, ciphertext_len, MPI_CHAR, root, comm);
 		
 	}
 	else if (rank != root) {	
 	
 		ciphertext_len = (unsigned long)((count*sendtype_sz)+16);
 		
-		mpi_errno = MPI_Bcast(bcast_deciphertext, ciphertext_len, MPI_CHAR, 0, comm);
+		mpi_errno = MPI_Bcast(bcast_deciphertext, ciphertext_len, MPI_CHAR, root, comm);
 		
 		if(!EVP_AEAD_CTX_open(ctx, buffer, 
                             &decrypted_len, ciphertext_len, 
@@ -1687,3 +1737,5 @@ int MPI_SEC_Bcast( void *buffer, int count, MPI_Datatype datatype, int root,
 	return mpi_errno;
 
 }
+#endif
+/* End of add */

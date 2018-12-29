@@ -7,6 +7,10 @@
 
 #include "mpiimpl.h"
 
+/* added by Abu Naser */
+int waitCounter = 0;
+/* end of add by Abu Naser*/
+
 /* -- Begin Profiling Symbol Block for routine MPI_Wait */
 #if defined(HAVE_PRAGMA_WEAK)
 #pragma weak MPI_Wait = PMPI_Wait
@@ -208,3 +212,59 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
+
+/* added by abu naser */
+/* Variable nonce */
+int MPI_SEC_Wait(MPI_Request *request, MPI_Status *status){
+    
+    int mpi_errno = MPI_SUCCESS;
+    int  recv_sz=0; 
+    int var;
+    unsigned long count;          
+       
+    mpi_errno=MPI_Wait(request, status);
+    MPI_Datatype datatype = MPI_CHAR;
+    MPI_Get_count(status, datatype, &recv_sz);
+
+     if(!EVP_AEAD_CTX_open(ctx, bufptr[waitCounter],
+                        &count, (recv_sz-12),
+                        &Ideciphertext[waitCounter][0], 12,
+                         &Ideciphertext[waitCounter][12], (recv_sz-12),
+                        NULL, 0)){
+            printf("Decryption error: wait\n");
+            fflush(stdout);
+        }
+
+    waitCounter++;
+     if(waitCounter == (3000-1))
+        waitCounter=0;
+    return mpi_errno;
+}
+
+/* Fixed nonce */
+#if 0
+int MPI_SEC_Wait(MPI_Request *request, MPI_Status *status){
+    
+    int mpi_errno = MPI_SUCCESS;
+    int  recv_sz=0; 
+    int var;
+    unsigned long count;          
+       
+    mpi_errno=MPI_Wait(request, status);
+    MPI_Datatype datatype = MPI_CHAR;
+    MPI_Get_count(status, datatype, &recv_sz);
+
+     if(!EVP_AEAD_CTX_open(ctx, bufptr[waitCounter],
+                        &count, recv_sz,
+                        nonce, 12,
+                         &Ideciphertext[waitCounter][0], recv_sz,
+                        NULL, 0)){
+            printf("Decryption error.\n");
+            fflush(stdout);
+        }
+
+    waitCounter++;
+    return mpi_errno;
+}
+#endif
+/* end of add by abu naser */

@@ -748,6 +748,7 @@ int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 }
 
 /* Added by Abu Naser */
+/* variable nonce */
 int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
                   MPI_Comm comm)
@@ -757,7 +758,7 @@ int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 	int var;
 	
     int sendtype_sz, recvtype_sz;
-    unsigned long long ciphertext_sendbuf_len = 0;
+    unsigned long  ciphertext_sendbuf_len = 0;
     sendtype_sz= recvtype_sz= 0;
 
     var=MPI_Type_size(sendtype, &sendtype_sz);
@@ -767,15 +768,90 @@ int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 	int rank;
 	rank = comm_ptr->rank;
 
-	unsigned long long count=0;
-    unsigned int next, dest;
-	unsigned long long t=0;
-    t = (unsigned long long)(sendtype_sz*sendcount);
+	unsigned long count=0;
+    unsigned long next, dest;
+	unsigned long  t=0;
+    t = (unsigned long )(sendtype_sz*sendcount);
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*sendcount));
+    unsigned int j ;
+    for( j = 0; j < comm_ptr->local_size; j++){
+        next =(unsigned long )(j*(sendcount*sendtype_sz));
+        dest =(unsigned long )(j*((sendcount*sendtype_sz)+16+12));
+
+        /* Set the nonce in alltoall_ciphertext */
+        RAND_bytes(&alltoall_ciphertext_sendbuf[dest], 12); // 12 bytes of nonce
+        /*nonceCounter++;
+        memset(&alltoall_ciphertext_sendbuf[dest], 0, 8);
+        alltoall_ciphertext_sendbuf[dest+8] = (nonceCounter >> 24) & 0xFF;
+        alltoall_ciphertext_sendbuf[dest+9] = (nonceCounter >> 16) & 0xFF;
+        alltoall_ciphertext_sendbuf[dest+10] = (nonceCounter >> 8) & 0xFF;
+        alltoall_ciphertext_sendbuf[dest+11] = nonceCounter & 0xFF;*/
+       
+        if(!EVP_AEAD_CTX_seal(ctx, (alltoall_ciphertext_sendbuf+dest+12),
+                         &ciphertext_sendbuf_len, max_out_len,
+                         (alltoall_ciphertext_sendbuf+dest), 12,
+                         sendbuf+next, t,
+                        NULL, 0)){
+              printf("Error in encryption: alltoall\n");
+              fflush(stdout);
+        }         
+            
+     }        
+               
+  
+    mpi_errno=MPI_Alltoall(alltoall_ciphertext_sendbuf, ciphertext_sendbuf_len+12, MPI_CHAR,
+                  alltoall_ciphertext_recvbuf, ((recvcount*recvtype_sz) + 16 +12), MPI_CHAR, comm);
+
+ 
+ 
+    unsigned int i;
+    for(i = 0; i < comm_ptr->local_size; i++){
+        next =(unsigned long )(i*((recvcount*recvtype_sz) + 16 + 12));
+        dest =(unsigned long )(i*(recvcount*recvtype_sz));
+       
+        if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
+                        &count, (unsigned long )((recvcount*recvtype_sz)+16),
+                        (alltoall_ciphertext_recvbuf+next), 12,
+                        (alltoall_ciphertext_recvbuf+next+12), (unsigned long )((recvcount*recvtype_sz)+16),
+                        NULL, 0)){
+                    printf("Decryption error alltoall\n");fflush(stdout);        
+            }       
+        
+    }
+    
+    return mpi_errno;
+}
+
+/* Fixed nonce */
+#if 0
+int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  MPI_Comm comm)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPID_Comm *comm_ptr = NULL;
+	int var;
+	
+    int sendtype_sz, recvtype_sz;
+    unsigned long  ciphertext_sendbuf_len = 0;
+    sendtype_sz= recvtype_sz= 0;
+
+    var=MPI_Type_size(sendtype, &sendtype_sz);
+    var=MPI_Type_size(recvtype, &recvtype_sz);
+
+    MPID_Comm_get_ptr( comm, comm_ptr);
+	int rank;
+	rank = comm_ptr->rank;
+
+	unsigned long count=0;
+    unsigned long next, dest;
+	unsigned long  t=0;
+    t = (unsigned long )(sendtype_sz*sendcount);
     unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*sendcount));
     //printf("t=%llu ciphertext_sendbuf_len=%llu\n",t,ciphertext_sendbuf_len);
     for(unsigned int j = 0; j < comm_ptr->local_size; j++){
-        next =(unsigned long long)(j*(sendcount*sendtype_sz));
-        dest =(unsigned long long)(j*((sendcount*sendtype_sz)+16));
+        next =(unsigned long )(j*(sendcount*sendtype_sz));
+        dest =(unsigned long )(j*((sendcount*sendtype_sz)+16));
         /*
         var = crypto_aead_aes256gcm_encrypt_afternm(alltoall_ciphertext_sendbuf+dest, &ciphertext_sendbuf_len,
             sendbuf+next, t,
@@ -806,8 +882,8 @@ int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
  
     
     for(unsigned int i = 0; i < comm_ptr->local_size; i++){
-        next =(unsigned long long)(i*((recvcount*recvtype_sz) + 16));
-        dest =(unsigned long long)(i*(recvcount*recvtype_sz));
+        next =(unsigned long )(i*((recvcount*recvtype_sz) + 16));
+        dest =(unsigned long )(i*(recvcount*recvtype_sz));
        // printf("next=%llu dest=%llu\n",next,dest);fflush(stdout);
        /*
         var = crypto_aead_aes256gcm_decrypt_afternm(((recvbuf+dest)), &count,
@@ -820,9 +896,9 @@ int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
             printf("Decryption failed\n");fflush(stdout); 
         */
         if(!EVP_AEAD_CTX_open(ctx, ((recvbuf+dest)),
-                        &count, (unsigned long long)((recvcount*recvtype_sz)+16),
+                        &count, (unsigned long )((recvcount*recvtype_sz)+16),
                         nonce, 12,
-                        (alltoall_ciphertext_recvbuf+next), (unsigned long long)((recvcount*recvtype_sz)+16),
+                        (alltoall_ciphertext_recvbuf+next), (unsigned long )((recvcount*recvtype_sz)+16),
                         NULL, 0)){
                     printf("Decryption error\n");fflush(stdout);        
             }       
@@ -831,4 +907,5 @@ int MPI_SEC_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
     
     return mpi_errno;
 }
+#endif
 /* End of add. */    

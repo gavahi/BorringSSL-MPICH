@@ -12,7 +12,9 @@
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
-unsigned char Iciphertext[4194304+18];
+//unsigned char Iciphertext[4194304+18];
+unsigned char Iciphertext[3000][1100000];
+int isendCounter = 0;
 
 /* End of add. */
 /* -- Begin Profiling Symbol Block for routine MPI_Isend */
@@ -164,11 +166,13 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 }
 
 /* Added by Abu Naser, an16e@my.fsu.edu june 19 2018 */
+/*Variable nonce*/
 int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
 
     int mpi_errno = MPI_SUCCESS;
     MPI_Status status;
+    MPI_Request req;
 
     unsigned long ciphertext_len=0;
     int  sendtype_sz;           
@@ -176,7 +180,49 @@ int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, i
     MPI_Type_size(datatype, &sendtype_sz);         
     unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*count));
 
-    if(!EVP_AEAD_CTX_seal(ctx, Iciphertext,
+    /* Set the nonce in send_ciphertext */
+    RAND_bytes(&Iciphertext[isendCounter][0], 12); // 12 bytes of nonce
+    /*nonceCounter++;
+    memset(&Iciphertext[isendCounter][0], 0, 8);
+    Iciphertext[isendCounter][8] = (nonceCounter >> 24) & 0xFF;
+    Iciphertext[isendCounter][9] = (nonceCounter >> 16) & 0xFF;
+    Iciphertext[isendCounter][10] = (nonceCounter >> 8) & 0xFF;
+    Iciphertext[isendCounter][11] = nonceCounter & 0xFF;*/
+
+    if(!EVP_AEAD_CTX_seal(ctx, &Iciphertext[isendCounter][12],
+                        &ciphertext_len, max_out_len,
+                        &Iciphertext[isendCounter][0], 12,
+                        buf,  (unsigned long)(count * sendtype_sz),
+                        NULL, 0)){
+                printf("Error in encryption\n");
+                fflush(stdout);    
+            }
+         
+    mpi_errno = MPI_Isend(&Iciphertext[isendCounter][0], ciphertext_len+12, MPI_CHAR, dest, tag, comm, &req);
+    * request = req;
+    isendCounter++;
+    if(isendCounter == (3000-1))
+        isendCounter=0;
+
+    return mpi_errno;
+}
+
+/*Fixed nonce*/
+#if 0
+int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+{
+
+    int mpi_errno = MPI_SUCCESS;
+    MPI_Status status;
+    MPI_Request req;
+
+    unsigned long ciphertext_len=0;
+    int  sendtype_sz;           
+    
+    MPI_Type_size(datatype, &sendtype_sz);         
+    unsigned long   max_out_len = (unsigned long) (16 + (sendtype_sz*count));
+
+    if(!EVP_AEAD_CTX_seal(ctx, &Iciphertext[isendCounter][0],
                         &ciphertext_len, max_out_len,
                         nonce, 12,
                         buf,  (unsigned long)(count * sendtype_sz),
@@ -185,9 +231,13 @@ int MPI_SEC_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, i
                 fflush(stdout);    
             }
          
-    mpi_errno = MPI_Isend(Iciphertext, ciphertext_len, MPI_CHAR, dest, tag, comm, request);
-    MPI_Wait(request, &status);
+    mpi_errno = MPI_Isend(&Iciphertext[isendCounter][0], ciphertext_len, MPI_CHAR, dest, tag, comm, &req);
+    * request = req;
+    isendCounter++;
+    if(isendCounter == (20000-1))
+        isendCounter=0;
 
- return mpi_errno;
+    return mpi_errno;
 }
+#endif
 /* End of Added by abu naser. */

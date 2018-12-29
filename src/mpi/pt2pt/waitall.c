@@ -399,3 +399,42 @@ int MPI_Waitall(int count, MPI_Request array_of_requests[],
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
+
+
+/* added by abu naser */
+/* Variable nonce */
+int MPI_SEC_Waitall(int count, MPI_Request req[], MPI_Status sta[]){
+    
+    int mpi_errno = MPI_SUCCESS;
+    int  recv_sz=0; 
+    int var,i;
+    unsigned long dec_count;          
+       
+    mpi_errno=MPI_Waitall(count, req, sta);
+
+    MPI_Datatype datatype = MPI_CHAR;
+   
+    for(i=0; i<count; i++){
+        MPI_Get_count(&sta[i], datatype, &recv_sz);
+
+        if(!EVP_AEAD_CTX_open(ctx, bufptr[waitCounter],
+                        &dec_count, (recv_sz-12),
+                        &Ideciphertext[waitCounter][0], 12,
+                         &Ideciphertext[waitCounter][12], (recv_sz-12),
+                        NULL, 0)){
+            printf("Decryption error: Waitall\n");
+            fflush(stdout);
+        }
+        //else{
+        //    printf("decrypted %lu bytes\n",dec_count);
+        //    fflush(stdout);
+        //}
+
+        waitCounter++;
+        if(waitCounter == (3000-1))
+            waitCounter=0;
+    } 
+
+    return mpi_errno;
+}
+/* End of adding */

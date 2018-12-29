@@ -11,10 +11,11 @@
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <openssl/aead.h>
-unsigned char Ideciphertext[4194304+18];
- //int ADDITIONAL_DATA_LEN2=6;
- // char nonce2[12] = {'1','2','3','4','5','6','7','8','9','0','1','2'};
- // char ADDITIONAL_DATA2[6] = {'1','2','3','4','5','6'};
+//unsigned char Ideciphertext[4194304+18];
+
+unsigned char Ideciphertext[3000][1100000];
+unsigned char * bufptr[100000];
+int reqCounter = 0;
 /* end of add */
 
 /* -- Begin Profiling Symbol Block for routine MPI_Irecv */
@@ -170,17 +171,50 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
 }
 
 /* Added by Abu Naser */
+/* variable nonce */
 int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
     int mpi_errno = MPI_SUCCESS;
     MPI_Status status;
     unsigned long ciphertext_len = 0;
     unsigned long decrypted_len = 0;
+     MPI_Request req; 
 
     int  recvtype_sz;           
     MPI_Type_size(datatype, &recvtype_sz);         
     
-    ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    //ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    mpi_errno=MPI_Irecv(&Ideciphertext[reqCounter][0], (recvtype_sz*count+16+12), MPI_CHAR, source, tag, comm, &req);
+    * request = req;
+    bufptr[reqCounter]=buf;
+    reqCounter++;
+    if(reqCounter == (3000-1))
+        reqCounter=0;
+
+       
+return mpi_errno;
+
+}
+
+/* fixed nonce */
+#if 0
+int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPI_Status status;
+    unsigned long ciphertext_len = 0;
+    unsigned long decrypted_len = 0;
+     MPI_Request req; 
+
+    int  recvtype_sz;           
+    MPI_Type_size(datatype, &recvtype_sz);         
+    
+    //ciphertext_len = (unsigned long)((count * recvtype_sz) + 16); 
+    mpi_errno=MPI_Irecv(&Ideciphertext[reqCounter][0], (recvtype_sz*count+16), MPI_CHAR, source, tag, comm, &req);
+    * request = req;
+    bufptr[reqCounter]=buf;
+    reqCounter++;
+ #if 0   
     mpi_errno = MPI_Irecv(Ideciphertext, ciphertext_len, MPI_CHAR, source, tag, comm,request);
     MPI_Wait(request, &status);
 
@@ -192,9 +226,9 @@ int MPI_SEC_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int t
             printf("Decryption error.\n");
             fflush(stdout);
         }
-        
+#endif        
 return mpi_errno;
 
 }
-
+#endif
 /*End of add, abu naser */

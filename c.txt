@@ -1,5 +1,5 @@
-Configuring MPICH version 3.2.1 with  '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_'
-Running on system: Linux dhcp16198 4.4.0-116-generic #140-Ubuntu SMP Mon Feb 12 21:23:04 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
+Configuring MPICH version 3.2.1 with  '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_'
+Running on system: Linux dhcp16206 4.4.0-116-generic #140-Ubuntu SMP Mon Feb 12 21:23:04 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
 checking for icc... no
 checking for pgcc... no
 checking for xlc... no
@@ -143,7 +143,7 @@ checking hcoll/api/hcoll_api.h presence... no
 checking for hcoll/api/hcoll_api.h... no
 checking for hcoll_init in -lhcoll... no
 configure: ===== configuring src/mpl =====
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
 checking for a BSD-compatible install... /usr/bin/install -c
 checking whether build environment is sane... yes
 checking for a thread-safe mkdir -p... /bin/mkdir -p
@@ -296,7 +296,7 @@ config.status: include/mplconfig.h is unchanged
 configure: ===== done with src/mpl configure =====
 configure: sourcing src/mpl/localdefs
 configure: ===== configuring src/openpa =====
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning --with-atomic-primitives=auto_allow_emulation '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning --with-atomic-primitives=auto_allow_emulation '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
 checking for a BSD-compatible install... /usr/bin/install -c
 checking whether build environment is sane... yes
 checking for a thread-safe mkdir -p... /bin/mkdir -p
@@ -818,7 +818,7 @@ checking for the range of integer...  9
 checking for available integer kinds...  2 , 1, 4 , 2, 9 , 4, 18 , 8,
 checking for available integer ranges...  {  2 , 1 , 1 }, {  4 , 2 , 2 }, {  9 , 4 , 4 }, {  18 , 8 , 8 },
 configure: ===== configuring src/mpi/romio =====
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
 checking for a BSD-compatible install... /usr/bin/install -c
 checking whether build environment is sane... yes
 checking for a thread-safe mkdir -p... mkdir -p
@@ -1087,7 +1087,7 @@ config.status: executing default-1 commands
 configure: ===== done with src/mpi/romio configure =====
 configure: sourcing src/mpi/romio/localdefs
 configure: ===== configuring src/pm/hydra =====
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
 checking build system type... x86_64-pc-linux-gnu
 checking host system type... x86_64-pc-linux-gnu
 checking target system type... x86_64-pc-linux-gnu
@@ -1183,7 +1183,7 @@ checking whether the compiler defines __func__... yes
 checking whether the compiler defines __FUNC__... no
 checking whether the compiler sets __FUNCTION__... yes
 configure: ===== configuring mpl =====
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' 'CC=gcc' 'CFLAGS=   -O2 ' 'LDFLAGS=' 'LIBS=' 'CPPFLAGS=  -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpl/include -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpl/include -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/openpa/src -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/openpa/src -D_REENTRANT -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpi/romio/include' 'MPLLIBNAME=mpl' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl' --disable-versioning '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' 'CC=gcc' 'CFLAGS=   -O2 ' 'LDFLAGS=' 'LIBS=' 'CPPFLAGS=  -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpl/include -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpl/include -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/openpa/src -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/openpa/src -D_REENTRANT -I/home/mpiuser/mpich-3.2.1-boring-ssl/src/mpi/romio/include' 'MPLLIBNAME=mpl' --cache-file=/dev/null --srcdir=.
 checking for a BSD-compatible install... /usr/bin/install -c
 checking whether build environment is sane... yes
 checking for a thread-safe mkdir -p... mkdir -p
@@ -1725,7 +1725,7 @@ config.status: executing default-3 commands
 config.status: executing default-4 commands
 config.status: executing default-5 commands
 === configuring in test/mpi (/home/mpiuser/mpich-3.2.1-boring-ssl/test/mpi)
-configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
+configure: running /bin/bash ./configure --disable-option-checking '--prefix=/home/mpiuser/mpich-3.2.1-boring-ssl/mpich-3.2.1_install_boringssl'  '--with-device=ch3:nemesis' '--program-prefix=MPICH_3.2.1_boringssl_' --cache-file=/dev/null --srcdir=.
 RUNNING CONFIGURE FOR MPI TESTS
 checking for a BSD-compatible install... /usr/bin/install -c
 checking whether build environment is sane... yes
